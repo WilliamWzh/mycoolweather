@@ -17,11 +17,13 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.wzhworld.mycoolweather.MainActivity;
 import com.example.wzhworld.mycoolweather.R;
 import com.example.wzhworld.mycoolweather.WeatherActivity;
 import com.example.wzhworld.mycoolweather.db.DbCity;
 import com.example.wzhworld.mycoolweather.db.DbCounty;
 import com.example.wzhworld.mycoolweather.db.DbProvince;
+import com.example.wzhworld.mycoolweather.gson.Weather;
 import com.example.wzhworld.mycoolweather.util.HttpUtil;
 import com.example.wzhworld.mycoolweather.util.Utility;
 
@@ -88,11 +90,17 @@ public class ChooseAreaFragment extends Fragment {
                     queryCounties();
                 }else if(currentLevel == LEVEL_COUNTY){
                     String weatherId = countyList.get(position).getWeatherId();
-                    Log.d("Choose",weatherId);
-                    Intent intent = new Intent(getActivity(), WeatherActivity.class);
-                    intent.putExtra("weather_id",weatherId);
-                    startActivity(intent);
-                    getActivity().finish();
+                    if(getActivity() instanceof MainActivity) {
+                        Intent intent = new Intent(getActivity(), WeatherActivity.class);
+                        intent.putExtra("weather_id", weatherId);
+                        startActivity(intent);
+                        getActivity().finish();
+                    }else if(getActivity() instanceof WeatherActivity){
+                        WeatherActivity activity = (WeatherActivity)getActivity();
+                        activity.drawerLayout.closeDrawers();
+                        activity.swipeRefresh.setRefreshing(true);
+                        activity.requestWeather(weatherId);
+                    }
                 }
             }
         });
