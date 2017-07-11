@@ -10,6 +10,7 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -33,9 +34,10 @@ import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.Response;
 
-public class WeatherActivity extends AppCompatActivity {
+public class WeatherActivity extends AppCompatActivity implements View.OnClickListener{
     public DrawerLayout drawerLayout;
     private Button navButton;
+    private Button locBitton;
     public SwipeRefreshLayout swipeRefresh;
     private ImageView bingpicImg;
     private ScrollView weatherLayout;
@@ -52,13 +54,13 @@ public class WeatherActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-//        if(Build.VERSION.SDK_INT >= 21){
-//            View decorView = getWindow().getDecorView();
-//            decorView.setSystemUiVisibility(
-//                    View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-//            );
-//            getWindow().setStatusBarColor(Color.TRANSPARENT);
-//        }
+        if(Build.VERSION.SDK_INT >= 21){
+            View decorView = getWindow().getDecorView();
+            decorView.setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            );
+            getWindow().setStatusBarColor(Color.TRANSPARENT);
+        }
         setContentView(R.layout.activity_weather);
 
 
@@ -80,6 +82,7 @@ public class WeatherActivity extends AppCompatActivity {
         swipeRefresh.setColorSchemeResources(R.color.colorPrimary);
         drawerLayout =(DrawerLayout)findViewById(R.id.drawer_layout);
         navButton = (Button)findViewById(R.id.nav_button);
+        locBitton = (Button)findViewById(R.id.loc_button);
 
         SharedPreferences prefs= PreferenceManager.getDefaultSharedPreferences(this);
         String weatherString = prefs.getString("weather",null);
@@ -110,13 +113,8 @@ public class WeatherActivity extends AppCompatActivity {
         }
 
 
-
-        navButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                drawerLayout.openDrawer(GravityCompat.START);
-            }
-        });
+        titleCity.setOnClickListener(this);
+        locBitton.setOnClickListener(this);
 
     }
 
@@ -186,6 +184,7 @@ public class WeatherActivity extends AppCompatActivity {
     }
 
     private void showWeatherInfo(Weather weather) {
+
         if (weather != null && "ok".equals(weather.status)) {
             String cityName = weather.basic.cityName;
             String updateTime = weather.basic.update.updateTime.split(" ")[1];
@@ -211,13 +210,13 @@ public class WeatherActivity extends AppCompatActivity {
             }
 
             if (weather.aqi != null) {
-                aqiText.setText(weather.aqi.city.api);
+                aqiText.setText(weather.aqi.city.aqi);
                 pm25Text.setText(weather.aqi.city.pm25);
             }
 
-            String comfort = "舒适度" + weather.suggestion.comfort.info;
-            String carWash = "洗车指数" + weather.suggestion.carwash.info;
-            String sport = "运动建议" + weather.suggestion.sport.info;
+            String comfort = "舒适度:" + weather.suggestion.comfort.info;
+            String carWash = "洗车指数:" + weather.suggestion.carwash.info;
+            String sport = "运动建议:" + weather.suggestion.sport.info;
             comfortText.setText(comfort);
             carWashText.setText(carWash);
             sportText.setText(sport);
@@ -226,6 +225,16 @@ public class WeatherActivity extends AppCompatActivity {
             startService(intent);
         }else{
             Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()){
+            case R.id.title_city:;
+            case R.id.loc_button:
+                    drawerLayout.openDrawer(GravityCompat.END);//!!!!!
+                break;
         }
     }
 }
