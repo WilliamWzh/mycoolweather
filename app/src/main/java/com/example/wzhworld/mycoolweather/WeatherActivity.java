@@ -1,17 +1,20 @@
 package com.example.wzhworld.mycoolweather;
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
@@ -21,14 +24,24 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.baidu.location.BDLocation;
+import com.baidu.location.LocationClient;
+import com.baidu.location.LocationClientOption;
 import com.bumptech.glide.Glide;
+import com.example.wzhworld.mycoolweather.db.Ccdata;
 import com.example.wzhworld.mycoolweather.gson.Forecast;
 import com.example.wzhworld.mycoolweather.gson.Weather;
+import com.example.wzhworld.mycoolweather.loc.LocationFace;
+import com.example.wzhworld.mycoolweather.loc.LocationFaceUtil;
 import com.example.wzhworld.mycoolweather.service.AutoUpdateService;
 import com.example.wzhworld.mycoolweather.util.HttpUtil;
 import com.example.wzhworld.mycoolweather.util.Utility;
 
+import org.litepal.crud.DataSupport;
+
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -42,7 +55,7 @@ public class WeatherActivity extends AppCompatActivity implements View.OnClickLi
     private ImageView bingpicImg;
     private ScrollView weatherLayout;
     private TextView titleCity;
-    private TextView titleUpdateTime;
+//    private TextView titleUpdateTime;
     private TextView degreeText;
     private TextView weatherInfoText;
     private LinearLayout forecastLayout;
@@ -51,9 +64,19 @@ public class WeatherActivity extends AppCompatActivity implements View.OnClickLi
     private TextView comfortText;
     private TextView carWashText;
     private TextView sportText;
+
+
+    public LocationClient mLocationClient;
+    public String city;
+    public String code;
+    public String mDistrict;
+    public Button currentLoc;
+    public BDLocation mBDLocation;
+//    public BDLocationListener LocationFace;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         if(Build.VERSION.SDK_INT >= 21){
             View decorView = getWindow().getDecorView();
             decorView.setSystemUiVisibility(
@@ -61,13 +84,12 @@ public class WeatherActivity extends AppCompatActivity implements View.OnClickLi
             );
             getWindow().setStatusBarColor(Color.TRANSPARENT);
         }
+        initLocation();
         setContentView(R.layout.activity_weather);
 
 
         //初始化组件
-
         titleCity = (TextView)findViewById(R.id.title_city);
-        titleUpdateTime = (TextView)findViewById(R.id.title_update_time);
         degreeText = (TextView)findViewById(R.id.degree_text);
         weatherInfoText = (TextView)findViewById(R.id.weather_info_text);
         forecastLayout= (LinearLayout) findViewById(R.id.forecast_layout);
@@ -83,6 +105,7 @@ public class WeatherActivity extends AppCompatActivity implements View.OnClickLi
         drawerLayout =(DrawerLayout)findViewById(R.id.drawer_layout);
         navButton = (Button)findViewById(R.id.nav_button);
         locBitton = (Button)findViewById(R.id.loc_button);
+        currentLoc = (Button)findViewById(R.id.currentLoc_bt);
 
         SharedPreferences prefs= PreferenceManager.getDefaultSharedPreferences(this);
         String weatherString = prefs.getString("weather",null);
@@ -112,10 +135,9 @@ public class WeatherActivity extends AppCompatActivity implements View.OnClickLi
             loadBingPic();
         }
 
-
         titleCity.setOnClickListener(this);
         locBitton.setOnClickListener(this);
-
+        currentLoc.setOnClickListener(this);
     }
 
     public void requestWeather(final String weatherId){
@@ -184,14 +206,13 @@ public class WeatherActivity extends AppCompatActivity implements View.OnClickLi
     }
 
     private void showWeatherInfo(Weather weather) {
-
         if (weather != null && "ok".equals(weather.status)) {
             String cityName = weather.basic.cityName;
             String updateTime = weather.basic.update.updateTime.split(" ")[1];
             String degree = weather.now.temperature + "℃";
             String weatherInfo = weather.now.more.info;
             titleCity.setText(cityName);
-            titleUpdateTime.setText(updateTime);
+//            titleUpdateTime.setText(updateTime);
             degreeText.setText(degree);
             weatherInfoText.setText(weatherInfo);
 
@@ -232,9 +253,57 @@ public class WeatherActivity extends AppCompatActivity implements View.OnClickLi
     public void onClick(View v) {
         switch (v.getId()){
             case R.id.title_city:;
-            case R.id.loc_button:
-                    drawerLayout.openDrawer(GravityCompat.END);//!!!!!
+            case R.id.loc_button:{
+                drawerLayout.openDrawer(GravityCompat.END);//!!!!!
                 break;
+            }
+            case R.id.currentLoc_bt:{
+                String weaId = null;
+                mDistrict = mBDLocation.getDistrict();
+                mDistrict = mDistrict.substring(0,mDistrict.length()-1);
+                titleCity.setText(mDistrict);
+                List<Ccdata> ccdatas = DataSupport.where("city=?",mDistrict).find(Ccdata.class);
+                for(Ccdata ccdata:ccdatas){
+                     weaId = ccdata.getCode();
+                }
+                requestWeather(weaId);
+                break;
+            }
         }
+    }
+    private void initLocation(){
+        List<String> permissionList = new ArrayList<>();
+        if (ContextCompat.checkSelfPermission(WeatherActivity.this,
+                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionList.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+        if (ContextCompat.checkSelfPermission(WeatherActivity.this,
+                Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            permissionList.add(Manifest.permission.READ_PHONE_STATE);
+        }
+        if (ContextCompat.checkSelfPermission(WeatherActivity.this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            permissionList.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        }
+        if (!permissionList.isEmpty()) {
+            String[] permissions = permissionList.toArray(new String[permissionList.size()]);
+            ActivityCompat.requestPermissions(WeatherActivity.this, permissions, 1);
+        }
+        locationResult();
+    }
+
+    private void locationResult(){
+        new LocationFaceUtil(getApplicationContext(), new LocationFace() {
+            @Override
+            public void locationResult(BDLocation location) {
+                mBDLocation = location;
+            }
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mLocationClient.stop();
     }
 }
